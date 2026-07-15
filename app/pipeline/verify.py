@@ -1,48 +1,46 @@
-"""④ 사실 대조 (Fact Check Pass)
+"""④ 검증 (Context Check)
 
-생성된 이야기의 사실적 주장을 ①의 사실 목록과 대조한다.
-불일치가 있으면 issues로 반환 → 오케스트레이터가 수정 재생성을 트리거.
+브리핑과 문맥 카드를 문서와 대조한다.
+- 이 사건의 사실 주장 → 문서에 근거 있어야 함
+- 일반 지식 설명 → 적절히 표시됐는지, 이 사건의 사실처럼 단정하지 않았는지
 """
 
 import json
 
 from app.llm import FAST_MODEL, complete_json
 
-SYSTEM = """당신은 꼼꼼한 팩트체커입니다.
-이야기의 '사실적 주장'만 골라 사실 목록과 대조합니다.
-문체, 비유, 장면 묘사는 검증 대상이 아닙니다. 사건·수치·발언·인과관계만 봅니다."""
+SYSTEM = """당신은 꼼꼼한 검증자입니다.
+'읽기 전 브리핑'과 '문맥 카드'가 원문 문서와 모순되지 않는지,
+일반 지식 설명이 이 사건의 구체적 사실인 것처럼 위장하지 않았는지 확인합니다."""
 
 SCHEMA = {
     "type": "object",
     "properties": {
         "claims": {
             "type": "array",
-            "description": "이야기 속 사실적 주장들의 판정 결과",
+            "description": "브리핑·문맥 카드 속 주요 주장들의 판정",
             "items": {
                 "type": "object",
                 "properties": {
-                    "claim": {"type": "string", "description": "이야기 속 주장 요약"},
+                    "claim": {"type": "string", "description": "주장 요약"},
                     "verdict": {
                         "type": "string",
-                        "enum": ["근거있음", "추정표기됨", "불일치"],
+                        "enum": ["문서근거", "일반지식", "문제"],
                     },
-                    "evidence": {
-                        "type": "string",
-                        "description": "근거가 된 사실 id 또는 설명",
-                    },
+                    "note": {"type": "string", "description": "근거 또는 판단 이유"},
                 },
-                "required": ["claim", "verdict", "evidence"],
+                "required": ["claim", "verdict", "note"],
             },
         },
         "issues": {
             "type": "array",
-            "description": "'불일치' 판정만 담는다. 없으면 빈 배열.",
+            "description": "'문제' 판정만 담는다. 없으면 빈 배열.",
             "items": {
                 "type": "object",
                 "properties": {
-                    "claim": {"type": "string", "description": "문제가 된 주장"},
-                    "reason": {"type": "string", "description": "왜 문제인가"},
-                    "suggestion": {"type": "string", "description": "어떻게 고치면 되나"},
+                    "claim": {"type": "string"},
+                    "reason": {"type": "string"},
+                    "suggestion": {"type": "string"},
                 },
                 "required": ["claim", "reason", "suggestion"],
             },
@@ -51,30 +49,28 @@ SCHEMA = {
     "required": ["claims", "issues"],
 }
 
-PROMPT_TEMPLATE = """아래 이야기의 사실적 주장을 사실 목록과 대조하세요.
+PROMPT_TEMPLATE = """아래 브리핑·문맥 카드를 문서와 대조하세요.
 
 판정 기준:
-- "근거있음": 사실 목록의 항목으로 뒷받침됨 (표현이 달라도 내용이 같으면 OK)
-  · 뭉갠 표현("몇 달 뒤", "이듬해", "약 12억", "수백억대")은 사실 목록의 수치·시점과
-    규모·방향이 일치하면 근거있음으로 판정한다. 뭉갰다는 이유만으로 불일치가 아니다.
-  · 단, 규모가 틀리면(12억→수십억) 불일치다.
-- "추정표기됨": 사실 목록에 없지만 "~로 보인다/추정된다"로 명시된 추정
-- "불일치": 사실 목록에 없는 사건·수치·발언을 사실처럼 서술함 ← 이것만 issues에 담는다
+- "문서근거": 이 사건에 대한 주장이 문서 내용으로 뒷받침됨 (표현이 달라도 내용이 같으면 OK)
+- "일반지식": 제도·개념에 대한 일반적 설명으로, 이 사건의 사실이라고 단정하지 않음 (정상)
+- "문제": (a) 문서와 모순되는 주장, (b) 일반 지식을 이 사건의 구체적 사실처럼 단정,
+  (c) 원문의 결론을 통째로 스포일러해서 원문을 읽을 필요를 없앰
 
-이야기:
-<story>
-{story}
-</story>
+브리핑과 문맥 카드:
+{bundle}
 
-사실 목록:
-{facts}"""
+문서:
+<document>
+{document}
+</document>"""
 
 
-def verify(story: str, facts: dict) -> dict:
+def verify(document: str, bundle: dict) -> dict:
     return complete_json(
         PROMPT_TEMPLATE.format(
-            story=story,
-            facts=json.dumps(facts, ensure_ascii=False, indent=1),
+            bundle=json.dumps(bundle, ensure_ascii=False, indent=1),
+            document=document,
         ),
         schema=SCHEMA,
         system=SYSTEM,

@@ -1,63 +1,62 @@
-"""썰풀이 서사화 파이프라인 오케스트레이터.
+"""문맥 브리핑 파이프라인 오케스트레이터.
 
-기획서 §5:
-  기사 → ①사실 추출 → ②서사 설계 → ③각색 → ④사실 대조 → (불일치 시 수정 1회) → 결과
+  문서 → ①문서 분석(전제 찾기) → ②문맥 채우기 → ③브리핑 작성 → ④검증 → (문제 시 수정 1회) → 결과
 
-모든 중간 산출물을 결과에 포함시켜, 단계별 품질을 눈으로 확인하며
-프롬프트/구성을 업그레이드할 수 있게 한다.
-실패 시 어느 단계에서 터졌는지 에러 메시지에 표시한다.
+컨셉: 요약이 아니라, 원문을 스스로 읽을 수 있게 만드는 '읽기 전 브리핑'.
+모든 중간 산출물을 결과에 포함시켜 단계별 품질을 확인할 수 있게 한다.
 """
 
-from app.pipeline.arc import design_arc
-from app.pipeline.extract import extract_facts
-from app.pipeline.narrate import narrate, repair
+from app.pipeline.analyze import analyze
+from app.pipeline.compose import compose, repair
+from app.pipeline.contextualize import contextualize
 from app.pipeline.verify import verify
 
-MAX_ARTICLE_CHARS = 15000
+MAX_DOC_CHARS = 15000
 
 
 def _stage(name: str, fn, *args):
-    """단계 실행 래퍼 — 실패 시 단계명을 붙여 다시 던진다."""
     try:
         return fn(*args)
     except Exception as exc:
         raise RuntimeError(f"[{name}] {exc}") from exc
 
 
-def run_pipeline(article_text: str, style: str = "chronicle", engine: str = "v3") -> dict:
-    article_text = article_text.strip()[:MAX_ARTICLE_CHARS]
+def run_pipeline(document: str, level: str = "beginner") -> dict:
+    document = document.strip()[:MAX_DOC_CHARS]
 
-    # ① 사실 추출 — 이후 모든 단계의 불변 계약
-    facts = _stage("① 사실 추출", extract_facts, article_text)
-    if not facts.get("events"):
+    # ① 이 글이 전제하는 지식 찾기
+    analysis = _stage("① 문서 분석", analyze, document)
+    if not analysis.get("key_points"):
         raise RuntimeError(
-            "[① 사실 추출] 기사에서 사건을 추출하지 못했습니다. "
+            "[① 문서 분석] 문서에서 핵심 내용을 찾지 못했습니다. "
             "본문이 제대로 입력됐는지 확인해주세요 (URL 추출 실패 시 붙여넣기로 시도)."
         )
 
-    # ② 서사 설계
-    arc = _stage("② 서사 설계", design_arc, facts, style)
+    # ② 전제된 개념·배경을 이 글 기준으로 설명
+    context = _stage("② 문맥 채우기", contextualize, document, analysis, level)
 
-    # ③ 각색
-    draft = _stage("③ 각색", narrate, facts, arc, style, engine)
+    # ③ 읽기 전 브리핑 작성
+    briefing = _stage("③ 브리핑 작성", compose, document, analysis, context, level)
 
-    # ④ 사실 대조
-    verification = _stage("④ 사실 대조", verify, draft["story"], facts)
+    bundle = {
+        **briefing,
+        "concepts": context.get("concepts", []),
+        "background": context.get("background", []),
+    }
 
-    # 불일치 발견 시 1회 수정 재생성 후 재검증
+    # ④ 검증
+    verification = _stage("④ 검증", verify, document, bundle)
+
     repaired = False
     if verification.get("issues"):
-        draft = _stage("③′ 수정 재생성", repair, draft, verification["issues"], facts, engine)
-        verification = _stage("④′ 재검증", verify, draft["story"], facts)
+        bundle = _stage("③′ 수정", repair, bundle, verification["issues"], document)
+        verification = _stage("④′ 재검증", verify, document, bundle)
         repaired = True
 
     return {
-        "title": draft.get("title", ""),
-        "story": draft.get("story", ""),
-        "insight": draft.get("insight", ""),
-        "facts": facts,
-        "arc": arc,
+        **bundle,
+        "analysis": analysis,
         "verification": verification,
         "repaired": repaired,
-        "engine": engine,
+        "level": level,
     }
