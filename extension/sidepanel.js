@@ -161,7 +161,12 @@ async function run() {
   try {
     extracted = await inject(pageExtract);
   } catch (e) {
-    return showError('이 페이지의 본문을 읽을 수 없습니다. 갈피 툴바 아이콘을 다시 누른 뒤 시도하거나, 일반 기사 페이지에서 사용해주세요.');
+    // chrome://, 웹스토어 등 주입이 금지된 페이지이거나 확장 리로드 직후 권한 문제
+    return showError(
+      `이 페이지의 본문을 읽을 수 없습니다 (${e.message}). ` +
+      '브라우저 내부 페이지가 아닌 일반 기사 페이지인지 확인하고, ' +
+      'chrome://extensions에서 갈피를 새로고침한 뒤 페이지도 새로고침해 다시 시도해주세요.'
+    );
   }
   if (!extracted || extracted.text.length < 200) {
     return showError('본문 추출에 실패했습니다 — 기사 본문이 200자 이상인 페이지에서 시도해주세요.');
