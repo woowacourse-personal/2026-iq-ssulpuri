@@ -51,8 +51,11 @@
   URL 추출은 BeautifulSoup 베스트에포트. CORS는 chrome-extension 오리진만 허용.
 - UI: `app/static/index.html` — 단일 파일 (바닐라 JS). 다크 UI + 종이 카드 + 형광펜 컨셉.
 - 크롬 확장: `extension/` — MV3 사이드패널, 얇은 클라이언트 (본문 추출 → 서버 SSE → 렌더링 + 본문 하이라이트).
+  본문 추출은 `vendor/Readability.js`(Mozilla, Apache 2.0) 우선 + 휴리스틱 폴백.
   페이지 주입 함수(pageExtract/pageHighlight/pageScrollTo)는 self-contained여야 함 (패널 스코프 참조 불가).
-  API 키 노출 금지 — 확장에서 Anthropic 직접 호출 금지, 반드시 서버 경유 (절대 원칙 취급).
+  리더 뷰: `reader.html/js/css` — 브리핑 후 "광고 없이 읽기" → 새 탭에서 좌 브리핑 + 우 본문(이미지 포함) 2단.
+  데이터 전달은 `chrome.storage.session`(메모리 전용, 디스크 미기록 — 원칙 4 부합), 본문 HTML은 sanitize 후 삽입,
+  이미지는 원본 URL 참조만. API 키 노출 금지 — 확장에서 Anthropic 직접 호출 금지, 반드시 서버 경유 (절대 원칙 취급).
 - 문서: `docs/planning.md`(구 기획서, 히스토리), `experiments/`(프로토타이핑 실험 템플릿).
 
 ## 실행 / 확인
@@ -112,7 +115,8 @@ python -m pytest tests/ -q
 4. ~~**뉴스 타겟 특화**~~ ✅ 완료 (v0.4) — 프롬프트 사건 연쇄 중심 특화, UI 문구·예시 교체.
 5. ~~**크롬 확장**~~ ✅ 완료 (v0.4) — `extension/` MV3 사이드패널. 본문 추출 → `/api/transform/stream` →
    패널 렌더링 + 개념 용어 본문 형광펜 하이라이트(카드 클릭 시 해당 위치로 스크롤).
-   남은 것: 아이콘 PNG, 웹스토어 배포, 본문 추출 고도화(Readability급).
+   +추출 고도화(Readability.js 번들) +리더 뷰("광고 없이 읽기" — 새 탭 2단, 이미지 포함, storage.session).
+   남은 것: 아이콘 PNG, 웹스토어 배포.
 6. **web search 그라운딩**: 최신 사건 배경을 검색 결과에 근거시켜 컷오프 환각 리스크 제거.
 7. **결과 내보내기**: 브리핑을 마크다운/이미지로 저장·공유.
 8. **H1 검증 실험 지원**: `experiments/prototype-3-context-test.md`의 브리핑 유/무 이해도 비교 (뉴스 기사로).

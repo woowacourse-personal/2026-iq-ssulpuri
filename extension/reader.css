@@ -1,0 +1,123 @@
+/* 갈피 리더 뷰 — 갈피(브리핑)가 꽂힌 채 펼쳐진 지면.
+   좌: 브리핑 종이(고정), 우: 기사 본문 종이. 광고 없는 읽기 경험이 목적이므로 본문 가독성이 최우선. */
+:root {
+  --night: #14161f;
+  --night-soft: #1d2030;
+  --paper: #f7f4ec;
+  --ink: #23201a;
+  --dim: #9aa0b5;
+  --line: #2c3044;
+  --marker: #ffd94a;
+  --marker-soft: rgba(255, 217, 74, .45);
+  --press: #5b9dff;
+  --press-ink: #2456c4;
+  --press-btn: #2f6fed;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--night); color: #e8eaf2; font-family: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', sans-serif; min-height: 100vh; }
+a { color: var(--press); }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--press); outline-offset: 2px; }
+
+/* ── 상단 마스트 ───────────────────────────────── */
+.mast { display: flex; gap: 16px; align-items: flex-start; max-width: 1240px; margin: 0 auto; padding: 0 20px 14px; border-bottom: 1px solid var(--line); }
+.ribbon {
+  flex-shrink: 0; writing-mode: vertical-rl;
+  font-family: 'Noto Serif KR', serif; font-size: 17px; font-weight: 700; letter-spacing: 8px;
+  color: #fff; background: linear-gradient(180deg, var(--press-btn), var(--press-ink));
+  padding: 13px 8px 22px;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 10px), 0 100%);
+  box-shadow: 0 6px 18px rgba(36, 86, 196, .35);
+}
+.mast-info { padding-top: 16px; min-width: 0; }
+.mast-title { font-family: 'Noto Serif KR', serif; font-size: 17px; font-weight: 700; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mast-meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--dim); margin-top: 6px; }
+.mast-meta a { font-weight: 700; text-decoration: none; }
+.mast-meta a:hover { text-decoration: underline; }
+
+.error { display: none; max-width: 720px; margin: 40px auto; padding: 16px 20px; background: #2c1a1e; border: 1px solid #5c2e36; border-radius: 10px; color: #f0a5b0; font-size: 14px; line-height: 1.7; }
+.error.show { display: block; }
+
+/* ── 펼침면: 좌 브리핑 / 우 본문 ───────────────── */
+.spread { display: flex; gap: 24px; max-width: 1240px; margin: 0 auto; padding: 22px 20px 80px; align-items: flex-start; }
+.brief-col { flex: 0 0 380px; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+.article-col { flex: 1; min-width: 0; }
+
+/* 왼쪽: 브리핑 종이 (사이드패널과 동일 문법) */
+.brief-paper { position: relative; background: var(--paper); background-image: repeating-linear-gradient(0deg, rgba(35,32,26,.015) 0 2px, transparent 2px 4px); color: var(--ink); border-radius: 2px; padding: 22px 18px 24px; box-shadow: 0 12px 30px rgba(0,0,0,.45); }
+.brief-paper::before {
+  content: ""; position: absolute; top: -6px; right: 18px; width: 20px; height: 46px;
+  background: linear-gradient(180deg, var(--press-btn), var(--press-ink));
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 9px), 0 100%);
+  box-shadow: 0 4px 10px rgba(36, 86, 196, .3);
+}
+.brief-paper h2 { font-family: 'Noto Serif KR', serif; font-size: 18px; font-weight: 700; line-height: 1.45; padding-right: 34px; }
+.byline { font-size: 10.5px; letter-spacing: .5px; color: #6b6250; border-top: 1px solid #d9d2bd; border-bottom: 1px solid #d9d2bd; padding: 6px 2px; margin-top: 12px; }
+.byline b { color: var(--press-ink); }
+
+.section-label { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 2px; color: #45507a; margin: 24px 0 11px; border-top: 2px solid #2a3050; padding-top: 8px; }
+.section-label::before { content: ""; width: 11px; height: 6px; border-radius: 1px; background: rgba(36, 86, 196, .3); }
+.label-hint { font-weight: 400; letter-spacing: 0; color: #8a8470; margin-left: auto; }
+
+.briefing { font-family: 'Noto Serif KR', serif; font-size: 13.5px; line-height: 1.9; }
+.briefing p { margin-bottom: 1em; }
+.briefing p:first-child::first-letter { font-size: 34px; line-height: .95; font-weight: 700; float: left; margin: 5px 7px 0 0; }
+
+.concept { border: 1px solid #d5cdb6; background: #fbf8f0; border-radius: 3px; padding: 12px 13px; margin-bottom: 9px; }
+.concept.clickable { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.concept.clickable:hover { border-color: var(--press-ink); box-shadow: 0 2px 8px rgba(36, 86, 196, .15); }
+.concept .term-row { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; margin-bottom: 6px; }
+.concept .term { font-family: 'Noto Serif KR', serif; font-weight: 700; font-size: 13.5px; background: linear-gradient(transparent 62%, var(--marker-soft) 62%); padding: 0 1px; }
+.concept .ktype { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 20px; letter-spacing: .3px; }
+.ktype.doc { background: #e7efe3; color: #3d6b45; }
+.ktype.gen { background: #eee7d5; color: #8a6d1f; }
+.concept .expl { font-size: 12px; line-height: 1.75; color: #33302a; }
+.concept .why { font-size: 11px; line-height: 1.65; color: #6b6250; margin-top: 7px; padding-top: 7px; border-top: 1px dashed #e0d8c2; }
+.concept .why b { color: #4a3d00; }
+.concept .find { display: inline-block; font-size: 10.5px; font-weight: 700; color: #fff; background: var(--press-ink); border-radius: 20px; padding: 3px 11px; margin-top: 9px; }
+.concept.clickable:hover .find { background: var(--press-btn); }
+
+.path-item { display: flex; gap: 9px; margin-bottom: 10px; }
+.path-num { flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: var(--press-ink); color: #fff; font-weight: 700; font-size: 10.5px; display: flex; align-items: center; justify-content: center; }
+.path-body { font-size: 12px; line-height: 1.7; padding-top: 1px; }
+.path-body .step { font-weight: 700; }
+.path-body .notice { color: #5c5446; }
+
+.takeaway { display: block; margin-top: 22px; padding: 13px; background: linear-gradient(transparent 8%, rgba(255,217,74,.38) 8%, rgba(255,217,74,.38) 92%, transparent 92%); font-family: 'Noto Serif KR', serif; font-size: 12.5px; line-height: 1.85; }
+.takeaway .label { display: block; font-family: 'IBM Plex Sans KR', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 6px; color: #7a6410; }
+.disclaimer { margin-top: 12px; font-size: 10px; color: #6b6250; line-height: 1.6; }
+
+/* 오른쪽: 기사 본문 종이 */
+.article-paper { background: var(--paper); background-image: repeating-linear-gradient(0deg, rgba(35,32,26,.015) 0 2px, transparent 2px 4px); color: var(--ink); border-radius: 2px; padding: 48px 56px 64px; box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+.article-paper h1 { font-family: 'Noto Serif KR', serif; font-size: 27px; font-weight: 700; line-height: 1.45; letter-spacing: -0.3px; }
+.a-byline { font-size: 12px; letter-spacing: .5px; color: #6b6250; border-top: 1px solid #d9d2bd; border-bottom: 3px double #55503f; padding: 8px 2px; margin: 16px 0 26px; }
+
+.article-body { font-family: 'Noto Serif KR', serif; font-size: 16.5px; line-height: 2.0; }
+.article-body p { margin-bottom: 1.15em; }
+.article-body h2, .article-body h3, .article-body h4 { font-size: 1.15em; margin: 1.6em 0 .7em; line-height: 1.5; }
+.article-body img, .article-body video { max-width: 100%; height: auto; border-radius: 3px; margin: .5em 0; }
+.article-body figure { margin: 1.4em 0; }
+.article-body figcaption { font-family: 'IBM Plex Sans KR', sans-serif; font-size: 12px; color: #6b6250; line-height: 1.6; margin-top: 8px; padding-left: 10px; border-left: 3px solid var(--press-ink); }
+.article-body a { color: var(--press-ink); }
+.article-body blockquote { border-left: 3px solid #d9d2bd; padding-left: 14px; color: #55503f; margin: 1.2em 0; }
+.article-body ul, .article-body ol { padding-left: 1.4em; margin-bottom: 1.15em; }
+.article-body table { border-collapse: collapse; font-family: 'IBM Plex Sans KR', sans-serif; font-size: 13px; margin: 1.2em 0; max-width: 100%; display: block; overflow-x: auto; }
+.article-body td, .article-body th { border: 1px solid #d9d2bd; padding: 6px 10px; }
+
+/* 본문 속 형광펜 (개념 용어) */
+.galpi-mark { background: linear-gradient(transparent 55%, rgba(255, 217, 74, .75) 55%); padding: 0 1px; scroll-margin: 120px; transition: box-shadow .3s; }
+.galpi-mark.flash { box-shadow: 0 0 0 4px rgba(47, 111, 237, .35); }
+
+/* ── 좁은 화면: 위 브리핑 / 아래 본문 ───────────── */
+@media (max-width: 980px) {
+  .spread { flex-direction: column; padding: 16px 12px 60px; }
+  .brief-col { position: static; max-height: none; overflow: visible; flex: none; width: 100%; }
+  .article-col { width: 100%; }
+  .article-paper { padding: 28px 20px 40px; }
+  .article-paper h1 { font-size: 21px; }
+  .article-body { font-size: 15.5px; line-height: 1.9; }
+  .mast-title { white-space: normal; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .galpi-mark { transition: none; }
+  * { scroll-behavior: auto !important; }
+}

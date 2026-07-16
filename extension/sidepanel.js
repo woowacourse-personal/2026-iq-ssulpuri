@@ -6,6 +6,9 @@ const DEFAULT_SERVER = 'http://localhost:8000';
 let level = 'beginner';
 let currentTabId = null;
 let elapsedTimer = null;
+// 리더 뷰 재료 — 클라이언트 메모리에만 유지 (원문 미저장 원칙)
+let lastArticle = null;
+let lastResult = null;
 
 const STAGE_LAMP = {
   analyze: 'st-analyze', contextualize: 'st-contextualize',
@@ -14,8 +17,22 @@ const STAGE_LAMP = {
 
 // ── 페이지에 주입되는 함수들 (self-contained — 패널 스코프 참조 금지) ──
 
-// 본문 추출: 서버의 BeautifulSoup 로직과 같은 우선순위 — article 우선, 없으면 긴 <p>들
+// 본문 추출: Readability(파이어폭스 리더 모드 엔진)로 본문 HTML+텍스트를 뽑고,
+// 실패 시 기존 휴리스틱(article 우선 → 긴 <p>들)으로 폴백. vendor/Readability.js가 먼저 주입돼 있어야 한다.
 function pageExtract() {
+  try {
+    const parsed = new Readability(document.cloneNode(true)).parse();
+    if (parsed && parsed.textContent && parsed.textContent.trim().length >= 200) {
+      return {
+        title: parsed.title || document.title,
+        byline: parsed.byline || '',
+        siteName: parsed.siteName || location.hostname,
+        html: parsed.content || '',
+        text: parsed.textContent.trim(),
+        url: location.href,
+      };
+    }
+  } catch (e) { /* Readability 실패 → 폴백 */ }
   let text = '';
   const article = document.querySelector('article');
   if (article) text = article.innerText || '';
@@ -25,7 +42,10 @@ function pageExtract() {
       .filter(t => t.length > 30)
       .join('\n');
   }
-  return { title: document.title, text: (text || '').trim() };
+  return {
+    title: document.title, byline: '', siteName: location.hostname,
+    html: '', text: (text || '').trim(), url: location.href,
+  };
 }
 
 // 용어 하이라이트: 원문은 건드리지 않고 텍스트 노드만 형광펜 span으로 감싼다 (용어당 최대 5곳)
@@ -159,6 +179,10 @@ async function run() {
 
   let extracted;
   try {
+    // Readability를 먼저 주입한 뒤 추출 실행 (같은 isolated world라 전역이 유지된다)
+    await chrome.scripting.executeScript({
+      target: { tabId: currentTabId }, files: ['vendor/Readability.js'],
+    });
     extracted = await inject(pageExtract);
   } catch (e) {
     // chrome://, 웹스토어 등 주입이 금지된 페이지이거나 확장 리로드 직후 권한 문제
@@ -171,6 +195,7 @@ async function run() {
   if (!extracted || extracted.text.length < 200) {
     return showError('본문 추출에 실패했습니다 — 기사 본문이 200자 이상인 페이지에서 시도해주세요.');
   }
+  lastArticle = extracted;
 
   const go = el('go');
   go.disabled = true;
@@ -195,7 +220,10 @@ async function run() {
       throw new Error(data.detail || '분석에 실패했습니다.');
     }
     const data = await readSSE(res, onStageEvent);
+    lastResult = data;
     await renderResult(data);
+    // 리더 뷰는 Readability가 본문 HTML을 뽑아냈을 때만 제공
+    el('open-reader').style.display = lastArticle && lastArticle.html ? '' : 'none';
   } catch (e) {
     showError(e.message);
   } finally {
@@ -287,14 +315,20 @@ async function renderResult(d) {
 
 // ── 초기화 ────────────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', async () => {
-  el('today').textContent = new Date().toLocaleDateString('ko-KR', {
-    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+async function openReader() {
+  if (!lastArticle || !lastResult) return;
+  // storage.session은 메모리 전용(디스크 미기록, 브라우저 종료 시 소멸) — 원문 미저장 원칙에 부합
+  await chrome.storage.session.set({
+    readerData: { article: lastArticle, briefing: lastResult },
   });
+  await chrome.tabs.create({ url: chrome.runtime.getURL('reader.html') });
+}
 
+document.addEventListener('DOMContentLoaded', async () => {
   el('level-beginner').addEventListener('click', () => pickLevel('beginner'));
   el('level-intermediate').addEventListener('click', () => pickLevel('intermediate'));
   el('go').addEventListener('click', run);
+  el('open-reader').addEventListener('click', () => openReader().catch(e => showError(e.message)));
 
   const serverInput = el('server-url');
   serverInput.value = await getServer();
